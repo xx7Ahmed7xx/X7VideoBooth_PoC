@@ -1,183 +1,226 @@
-X7VideoBooth (PoC)
+# X7VideoBooth (PoC)
 
-A lightweight, Windows-only video booth app written in WPF (.NET).
-It previews your webcam, records with FFmpeg, and gives you simple booth UX elements (countdown, status lamps, timer, logs, snapshots).
+A lightweight **Windows video-booth** app built with **WPF (.NET)**.  
+It previews your webcam, records with **FFmpeg**, and adds practical booth UX (countdown, lamps, timer, logs, snapshots).
 
-Status: Proof-of-Concept (PoC). The code is intentionally straightforward (no MVVM yet) so other .NET devs can read and tinker quickly.
+> **Status:** Proof-of-Concept. Code is intentionally straightforward (no MVVM yet) so .NET devs can read and tinker quickly.
 
-<!-- (optional) add a real image later -->
+![screenshot](docs/screenshot1.png) <!-- replace with a real screenshot when ready -->
 
-✨ Features (today)
+---
 
-Webcam preview with Accord.Video.DirectShow
+## Table of Contents
 
-Start / Stop preview and recording
+- [Features](#features)
+- [Why a PoC](#why-a-poc)
+- [Architecture at a Glance](#architecture-at-a-glance)
+- [Requirements](#requirements)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Tips for Smooth “Real 30 fps”](#tips-for-smooth-real-30-fps)
+- [How Recording Works](#how-recording-works)
+- [Troubleshooting](#troubleshooting)
+- [What’s Missing (Booth Must-Haves)](#whats-missing-booth-must-haves)
+- [Roadmap (Suggested Order)](#roadmap-suggested-order)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [License & Trademark](#license--trademark)
+- [Credits](#credits)
+- [FAQ](#faq)
 
-“No audio” option (video-only) or pick a microphone
+---
 
-Stable FFmpeg pipeline
+## Features
 
-Combined DirectShow input (video="…":audio="…"),
+- **Webcam preview** via Accord.Video.DirectShow
+- **Start / Stop** preview and recording
+- **Pick microphone** or **(No audio)** for video-only
+- **Stable FFmpeg pipeline**
+  - Combined DirectShow input (`video="…":audio="…"` or video-only)
+  - CFR (e.g., 29.97/30), `yuv420p`, `-fflags +genpts`, `-movflags +faststart`
+- **Countdown overlay** (3-2-1), **status lamps** (Preview/Recording), **elapsed timer**
+- **Max duration** (auto-stop) support
+- **Snapshot** to JPG/PNG/BMP
+- **Device helpers:** list devices, probe valid camera modes (via FFmpeg)
+- **Log pane** with FFmpeg/app output
 
-CFR (e.g., 29.97/30), yuv420p, +faststart, +genpts → good playback & thumbnails
+---
 
-Countdown overlay (3-2-1), status lamps (Preview/Recording), elapsed timer
+## Why a PoC
 
-Snapshot to JPG/PNG/BMP
+This repo shows a minimal, dependable Windows recording flow that balances **lip-sync** and **compatibility** without heavy frameworks. It’s a clean starting point for kiosk/event “video booths,” and an easy codebase to fork. The app is intentionally **code-behind first**; once the features stabilize, it can be organized into MVVM.
 
-Device helpers: list devices, probe valid camera modes via FFmpeg
+---
 
-Log pane showing FFmpeg output & app messages
+## Architecture at a Glance
 
-Max duration (auto-stop) support
+- **WPF UI** (code-behind): direct and readable, no MVVM yet.
+- **Preview**: Accord.Video.DirectShow captures frames for the on-screen preview.
+- **Recording**: FFmpeg runs as a child process (via `FfmpegRecorder.cs`) using a combined DirectShow graph for video (+ optional audio).
+- **Sync & Compatibility**: CFR + `aresample=async=1` + `yuv420p` + `+genpts`/`+faststart` → good playback and proper Windows thumbnails.
 
-🧠 Why a PoC?
+---
 
-This repo shows a minimal, dependable Windows recording flow that balances lip-sync and compatibility without pulling in heavy UI frameworks. It’s a great starting point for kiosk/event “video booths,” and an easy codebase to fork.
+## Requirements
 
-🧩 Tech & Dependencies
+- **Windows 10/11**
+- **Visual Studio 2022** (recommended) or recent `dotnet` SDK with WPF workload
+- **FFmpeg**: `ffmpeg.exe` on `PATH` **or** next to the app’s `.exe` (That is already provided in the solution path)
+- **NuGet**: `Accord.Video.DirectShow`
 
-.NET / WPF (Visual Studio 2022 recommended)
+> Put `ffmpeg.exe` beside your built `.exe` or install FFmpeg and add it to `PATH`.
 
-Accord.Video.DirectShow for preview
+---
 
-FFmpeg (portable ffmpeg.exe)
+## Getting Started
 
-Optional: NAudio (future: simple VU meter)
+Open the solution in **Visual Studio 2022**.
 
-Place ffmpeg.exe beside the app or add it to your PATH.
+Restore NuGet packages and build.
 
-🚀 Getting Started
+Place **ffmpeg.exe** next to the built `.exe` (or ensure it’s on **PATH**).
 
-Clone
+Run the app.
 
+```bash
 git clone https://github.com/xx7Ahmed7xx/X7VideoBooth_PoC.git
+```
 
+---
 
-Open in Visual Studio 2022 (or build via dotnet build if targeting .NET 6/7 WPF).
+## Usage
 
-Put ffmpeg.exe next to your built .exe (or install FFmpeg to PATH).
+- Choose **Camera** and **Mic** (or select **(No audio)** for video-only).
+- Click **Preview** to verify video is live.
+- Click **Start Rec** → the **countdown** runs → recording starts.
+- Watch **status lamps** and **timer** (max duration auto-stops if configured).
+- Click **Stop Rec** → an **MP4** is saved (fast-start for web/players).
+- Use **Snapshot**, **List Devices**, **Valid Modes**, and the **Log** as needed.
 
-Run the app:
+---
 
-Pick Camera & Mic (or choose (No audio)).
+## Tips for Smooth “Real 30 fps”
 
-Click Preview → verify you see video.
+- Improve **lighting**; disable **auto-exposure** and target ~**1/60 s** exposure.
+- Prefer **720p** on older cameras when **1080p** drops frames.
+- Plug cams/mics directly into a **dedicated USB port** (avoid hubs).
 
-Click Start Rec → countdown → recording starts.
+---
 
-Stop Rec → file is saved (MP4 by default).
+## How Recording Works
 
-Use Snapshot, List Devices, Valid Modes, and watch the logs.
+- **Input:** `-i video="YourCam":audio="YourMic"` *(or video-only)*.
+- **Video** normalized to **CFR** with an `fps=` gate + `-vsync cfr`.
+- **Audio** gently tracks video with `aresample=async=1:osr=48000`.
+- **Output:** `libx264`, `-crf 20`, `-preset veryfast`, `-pix_fmt yuv420p`, `-fflags +genpts`, `-movflags +faststart`.
 
-If you’re using a Logitech C920/C922, 720p often gives higher real FPS in low light.
+This combination yields good lip-sync, sensible file size, broad player compatibility, and proper Windows thumbnails.
 
-⚙️ Configuration Highlights
+---
 
-FFmpeg command (core ideas):
+## Troubleshooting
 
-DirectShow graph for video+audio (or video-only)
+### No thumbnail / WMP oddities
+- Ensure `-pix_fmt yuv420p` and `-movflags +faststart` (already used).
 
--filter_complex for fps= gate + aresample=async=1
+### File shows ~15 fps even when 30 selected
+- That’s often the **camera’s effective rate** with long exposure/low light.
+- Improve lighting or switch to **720p**; lock exposure around **1/60 s**.
 
--pix_fmt yuv420p, -movflags +faststart, -fflags +genpts
+### Stutter / desync
+- Keep **VBR** and `aresample=async=1`.
+- Use **dedicated USB** ports and better lighting.
 
-“No audio”: cleanly omits the audio chain for video-only files.
+### Hardware encoders (NVENC/QSV/AMF)
+- PoC defaults to **x264** for wide compatibility. You can add hardware paths later.
 
-CFR vs VFR: the app uses CFR by default for compatibility (Windows players, thumbnails) and good lip-sync in practice. (VFR is possible but trades off metadata and some player behaviors.)
+---
 
-🧪 Known Good / Troubleshooting
+## What’s Missing (Booth Must-Haves)
 
-NVENC not used? The PoC defaults to x264 for wide compatibility. You can add a hardware path later if your GPU/driver supports it.
+This is a PoC. Typical **event-ready** features you may add:
 
-Properties shows 14–15 fps even when you asked for 30? That’s the camera’s real output when exposure is long or light is low. Increase lighting, disable auto-exposure (set ~1/60), or use 720p.
+- **Autosave & naming template** (Event/Date folders; skip SaveFileDialog for kiosk)
+- **Kiosk mode** (borderless fullscreen, TopMost, cursor auto-hide, hotkey to exit)
+- **Pre-flight checks** (ffmpeg present, camera/mic found, free disk space)
+- **Audible cues** (beep countdown, end chime)
+- **Audio VU meter** and simple mic test
+- **Branding / watermark overlay** (FFmpeg `overlay` or post-step)
+- **Consent screen** (for public events), simple JSON consent log
+- **Settings persistence** (JSON in `%AppData%\\X7VideoBooth`)
+- **Auto-cleanup** (delete files older than N days)
+- **Exposure/white balance controls** (DirectShow/IAM)
+- **Hotkeys** & **device hot-plug refresh**
+- **Crash-safe logging** (rolling logs to file)
 
-Stutter or desync:
+---
 
-Prefer CFR 29.97 and aresample=async=1.
+## Roadmap (Suggested Order)
 
-Use a dedicated USB port (avoid hubs) and improve lighting.
+1. Review flow (Retake / Keep)  
+2. Autosave naming + EventName + BaseFolder (Settings UI/JSON)  
+3. Kiosk mode (borderless, autosave, cursor hide, TopMost)  
+4. Pre-flight checks (ffmpeg/devices/disk)  
+5. Beep countdown & end chime  
+6. Audio VU (optional)  
+7. Consent toggle (if used publicly)
 
-Try 720p on C920 if 1080p is unstable in your environment.
+---
 
-No thumbnail / WMP oddities: ensure -pix_fmt yuv420p and -movflags +faststart (already in the default pipeline).
+## Project Structure
 
-🧭 What’s missing for a full “booth” (and planned)
-
-This is a PoC; here are common event-ready features and where they fit in the roadmap:
-
-Review flow (Retake / Keep) ✅ basic dialog ready to add; minimal code provided in issues/PRs welcomed
-
-Autosave & naming template (Event/Date folders; avoid SaveFileDialog in kiosk)
-
-Kiosk mode (borderless fullscreen, TopMost, cursor auto-hide, hotkey to exit)
-
-Pre-flight checks (ffmpeg present, camera/mic found, free disk space)
-
-Audio VU meter (confidence), beep countdown, end chime
-
-Branding overlay / watermark (FFmpeg overlay or post-step)
-
-Consent screen (for public events), simple JSON log of consent
-
-Settings persistence (JSON in %AppData%\X7VideoBooth)
-
-Auto-cleanup (delete files older than N days)
-
-Exposure/white balance controls (DirectShow/IAM interfaces)
-
-Hotkeys (Start/Stop, Snapshot), device hot-plug refresh
-
-Crash-safe logging (rolling logs to file)
-
-PRs: feel free to pick any of the above and open a PR; keep the code approachable and PoC-friendly.
-
-📁 Project Structure (simple by design)
+```
 X7VideoBooth_PoC/
   ├─ VideoBooth/
-  │   ├─ MainWindow.xaml / .cs        # UI and code-behind (PoC, no MVVM)
-  │   ├─ FfmpegRecorder.cs            # Thin wrapper to build & run ffmpeg
+  │   ├─ MainWindow.xaml / MainWindow.xaml.cs   # UI + code-behind (PoC, no MVVM)
+  │   ├─ FfmpegRecorder.cs                      # Thin wrapper to build/run ffmpeg
   │   └─ (helpers)
   └─ docs/
-      └─ screenshot.png               # (add your image)
+      └─ screenshot1.png
+```
 
+> Intentional: **no MVVM yet**. PRs that improve structure are welcome, but please keep the entry path simple for new .NET devs.
 
-Intentional: no MVVM yet. PRs that improve structure are welcome, but please keep the entry path simple for new .NET devs reading the code.
+---
 
-🤝 Contributing
+## Contributing
 
-Issues and PRs welcome!
+- Issues and PRs welcome!  
+- Keep PRs **small and focused**.  
+- For larger changes (MVVM, DI, major recording architecture), please open an issue first to discuss direction.
 
-Keep PRs small and focused.
+---
 
-If you propose big changes (MVVM, DI, new recording architecture), open an issue first to discuss direction.
+## License & Trademark
 
-📜 License & Trademark
+- **Free & source-available; non-commercial use only.**  
+  Professional/commercial usage **requires permission** from the author.
+- The **“X7VideoBooth”** name, **“Video Booth by MrX7”**, and any included branding are **trademarks** of the author.  
+  Do not remove trademark notices in the code/UI when redistributing binaries.
+- If you fork for learning or personal projects, please keep attribution intact.
 
-Free & source-available. Non-commercial use only.
-Professional/commercial usage requires permission from the author.
+> Note: Because it restricts commercial use, this does **not** match the OSI definition of “open source.” If you need a commercial license, please open an issue.
 
-The “X7VideoBooth” name, “Video Booth by MrX7”, and any included branding are trademarks of the author. Do not remove trademark notices in the code or UI when redistributing binaries.
+---
 
-If you fork this for learning or personal projects, please keep attribution intact.
+## Credits
 
-Note: The code is public and contributions are welcome, but because it restricts professional/commercial use, it does not match the OSI definition of “open source.” If you need a commercial license, please open an issue or contact the author.
+- **FFmpeg** — the workhorse encoder/transcoder  
+- **Accord.NET** — DirectShow capture made approachable  
+- Community members filing issues and PRs ❤️
 
-🙏 Credits
+---
 
-FFmpeg — the workhorse encoder/transcoder
+## FAQ
 
-Accord.NET — DirectShow capture made approachable
+**Is the code “good” for a PoC?**  
+Yes—clear and direct on purpose. It hasn’t been organized into MVVM yet; feel free to send incremental PRs that improve structure without sacrificing readability.
 
-Everyone filing issues and PRs ❤️
+**Why not keep the live preview during recording?**  
+For reliability. Many webcams/drivers dislike dual-open, and piping preview frames to FFmpeg adds CPU/complexity. The PoC uses a stable path: stop the live feed while recording, keep the last frame visible, show lamps/timer, then restore preview.
 
-FAQ
+**Can I add NVENC/QSV/AMF?**  
+Sure—detect availability and swap `-c:v` plus per-encoder options. Keep `yuv420p`, `+genpts`, and your CFR/VFR choice consistent.
 
-Why not keep the live preview running during recording?
-For reliability. Many webcams/drivers dislike dual-open, and even piping the preview frames to FFmpeg adds CPU/complexity. The PoC shows a stable path: stop the live feed, keep the last frame visible, show lamps/timer, then restore preview after recording.
-
-Can I add NVENC/QSV/AMF hardware encoding?
-Yes—add detection and switch -c:v plus per-encoder options. Be sure to keep yuv420p, +genpts, and CFR/VFR choices consistent.
-
-Is MVVM planned?
-Open to it. Since this is a PoC, clarity beat architecture for v0. PRs that incrementally move toward MVVM without making the code harder to follow are very welcome.
+**Which .NET version?**  
+Any modern WPF-capable .NET with Visual Studio 2022 is fine; the focus here is the capture/FFmpeg flow rather than framework specifics.

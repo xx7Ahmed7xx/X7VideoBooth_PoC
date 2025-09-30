@@ -9,6 +9,9 @@ using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using X7VideoBooth;
 
+
+// Made with 💖 by MrX7 (Eng\ Ahmed Ayman Mansour)
+// All rights reserved. 30th September, 2025.
 namespace VideoBooth
 {
     sealed class FpsPreset
