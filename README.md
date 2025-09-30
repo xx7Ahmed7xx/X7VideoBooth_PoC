@@ -43,6 +43,7 @@ It previews your webcam, records with **FFmpeg**, and adds practical booth UX (c
 - **Snapshot** to JPG/PNG/BMP
 - **Device helpers:** list devices, probe valid camera modes (via FFmpeg)
 - **Log pane** with FFmpeg/app output
+- **Video Introduction**: https://youtu.be/v1jEiK-X7nQ
 
 ---
 
