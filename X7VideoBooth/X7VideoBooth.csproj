@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<UseWPF>true</UseWPF>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+	<ItemGroup>
+	  <None Remove="ffmpeg.exe" />
+	  <None Remove="ffplay.exe" />
+	  <None Remove="ffprobe.exe" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Content Include="ffmpeg.exe">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="ffplay.exe">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="ffprobe.exe">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Include="Accord.Video" Version="3.8.0" />
+	  <PackageReference Include="Accord.Video.DirectShow" Version="3.8.0" />
+	  <PackageReference Include="ImageProcessor.Core.CoreCompat" Version="1.3.0" />
+	</ItemGroup>
+</Project>
